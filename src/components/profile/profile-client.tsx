@@ -40,7 +40,6 @@ export function ProfileClient() {
 
     const userProfileRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
-        // The document for a user's profile is stored at /users/{uid}
         return doc(firestore, "users", user.uid);
     }, [user, firestore]);
 
@@ -48,7 +47,6 @@ export function ProfileClient() {
 
     const form = useForm<ProfileFormData>({
         resolver: zodResolver(profileSchema),
-        // Default values will be populated by the useEffect hook below
     });
     
     useEffect(() => {
@@ -100,13 +98,18 @@ export function ProfileClient() {
     };
 
     const avatarPlaceholder = PlaceHolderImages.find(p => p.id === 'user-avatar');
+    
     const getInitials = (name: string | null | undefined) => {
       if (!name) return "U";
-      return name.split(' ').map(n => n[0]).join('').substring(0,2);
-    }
+      const names = name.split(' ');
+      if (names.length > 1) {
+        return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+      }
+      return name.substring(0, 2).toUpperCase();
+    };
 
     if (isLoading) {
-      return <div>Loading...</div>
+      return <div>Loading...</div>;
     }
 
     return (
