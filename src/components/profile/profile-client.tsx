@@ -16,6 +16,7 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { ChangeEvent, useRef, useEffect } from "react";
 import type { UserProfile } from "@/lib/types";
 import { doc } from "firebase/firestore";
+import { Skeleton } from "../ui/skeleton";
 
 const profileSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -47,6 +48,13 @@ export function ProfileClient() {
 
     const form = useForm<ProfileFormData>({
         resolver: zodResolver(profileSchema),
+        defaultValues: {
+            name: "",
+            email: "",
+            age: 0,
+            weight: 0,
+            macroGoals: { calories: 2000, protein: 150, carbs: 200, fats: 70 },
+        }
     });
     
     useEffect(() => {
@@ -58,7 +66,7 @@ export function ProfileClient() {
                 weight: userProfile.weight,
                 macroGoals: userProfile.macroGoals || { calories: 2000, protein: 150, carbs: 200, fats: 70 },
             });
-        } else if (user) {
+        } else if (user && !isLoading) {
             form.reset({
                 name: user.displayName || "",
                 email: user.email || "",
@@ -67,7 +75,7 @@ export function ProfileClient() {
                 macroGoals: { calories: 2000, protein: 150, carbs: 200, fats: 70 },
             });
         }
-    }, [userProfile, user, form]);
+    }, [userProfile, user, form, isLoading]);
 
 
     const onSubmit = async (data: ProfileFormData) => {
@@ -96,8 +104,6 @@ export function ProfileClient() {
             }
         }
     };
-
-    const avatarPlaceholder = PlaceHolderImages.find(p => p.id === 'user-avatar');
     
     const getInitials = (name: string | null | undefined) => {
       if (!name) return "U";
@@ -108,8 +114,53 @@ export function ProfileClient() {
       return name.substring(0, 2).toUpperCase();
     };
 
+    const avatarPlaceholder = PlaceHolderImages.find(p => p.id === 'user-avatar');
+
     if (isLoading) {
-      return <div>Loading...</div>;
+      return (
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="md:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle>Avatar</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center gap-4">
+                <Skeleton className="h-32 w-32 rounded-full" />
+                <Skeleton className="h-10 w-32" />
+              </CardContent>
+            </Card>
+          </div>
+          <div className="md:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Personal Information</CardTitle>
+                <CardDescription>Update your personal details here.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <div className="grid grid-cols-2 gap-4">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Macro Goals</CardTitle>
+                <CardDescription>Set your daily nutritional targets.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </CardContent>
+            </Card>
+            <Skeleton className="h-10 w-32" />
+          </div>
+        </div>
+      )
     }
 
     return (
@@ -121,8 +172,8 @@ export function ProfileClient() {
                     </CardHeader>
                     <CardContent className="flex flex-col items-center gap-4">
                         <Avatar className="h-32 w-32 cursor-pointer" onClick={handleAvatarClick}>
-                            <AvatarImage src={userProfile?.photoURL || user?.photoURL || avatarPlaceholder?.imageUrl} alt={user?.displayName || "User"} />
-                            <AvatarFallback>{getInitials(user?.displayName)}</AvatarFallback>
+                            <AvatarImage src={userProfile?.photoURL || user?.photoURL || avatarPlaceholder?.imageUrl} alt={userProfile?.name || user?.displayName || "User"} />
+                            <AvatarFallback>{getInitials(userProfile?.name || user?.displayName)}</AvatarFallback>
                         </Avatar>
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
                         <Button variant="outline" onClick={handleAvatarClick}>Change Avatar</Button>
@@ -171,7 +222,7 @@ export function ProfileClient() {
                                     <FormItem><FormLabel>Carbs (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <FormField control={form.control} name="macroGoals.fats" render={({ field }) => (
-                                    <FormItem><FormLabel>Fats (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormMessage>
+                                    <FormItem><FormLabel>Fats (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                                 )} />
                             </CardContent>
                         </Card>
