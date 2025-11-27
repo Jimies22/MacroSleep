@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from "@/firebase";
@@ -51,7 +52,7 @@ export function MacrosClient() {
       where("createdAt", "<", Timestamp.fromDate(tomorrow)),
       orderBy("createdAt", "desc")
     );
-  }, [user, firestore]);
+  }, [user, firestore, today, tomorrow]);
 
   const { data: macroLogs, isLoading: loading } = useCollection<MacroLog>(macroLogsQuery);
 
@@ -196,10 +197,10 @@ export function MacrosClient() {
                         <FormItem><FormLabel>Protein (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="carbs" render={({ field }) => (
-                        <FormItem><FormLabel>Carbs (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Carbs (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormMessage>
                     )} />
                     <FormField control={form.control} name="fats" render={({ field }) => (
-                        <FormItem><FormLabel>Fats (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Fats (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormMessage>
                     )} />
                   </div>
                   <SheetFooter>

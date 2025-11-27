@@ -1,3 +1,4 @@
+
 "use client";
 
 import { initializeFirebase } from "@/firebase";
@@ -115,6 +116,7 @@ export async function addSleepLog(uid: string, data: { startTime: Date, endTime:
     const totalHours = totalMilliseconds / (1000 * 60 * 60);
 
     const sleepLog = {
+      userId: uid,
       startTime: Timestamp.fromDate(startTime),
       endTime: Timestamp.fromDate(endTime),
       totalHours: parseFloat(totalHours.toFixed(2)),
@@ -133,6 +135,7 @@ export async function getSleepLogs(uid: string): Promise<SleepLog[]> {
 // Macro Log Actions
 export async function addMacroLog(uid: string, data: { mealName: string, calories: number, protein: number, carbs: number, fats: number }) {
     const macroLog = {
+        userId: uid,
         ...data,
         createdAt: serverTimestamp(),
     };
