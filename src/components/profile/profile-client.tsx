@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
@@ -56,14 +57,14 @@ export function ProfileClient() {
             macroGoals: { calories: 2000, protein: 150, carbs: 200, fats: 70 },
         }
     });
-    
+
     useEffect(() => {
         if (userProfile) {
             form.reset({
                 name: userProfile.name || user?.displayName || "",
                 email: userProfile.email || user?.email || "",
-                age: userProfile.age,
-                weight: userProfile.weight,
+                age: userProfile.age || undefined,
+                weight: userProfile.weight || undefined,
                 macroGoals: userProfile.macroGoals || { calories: 2000, protein: 150, carbs: 200, fats: 70 },
             });
         } else if (user && !isLoading) {
@@ -76,7 +77,15 @@ export function ProfileClient() {
             });
         }
     }, [userProfile, user, form, isLoading]);
-
+    
+    const getInitials = (name: string | null | undefined) => {
+      if (!name) return "U";
+      const names = name.split(' ');
+      if (names.length > 1) {
+        return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+      }
+      return name.substring(0, 2).toUpperCase();
+    };
 
     const onSubmit = async (data: ProfileFormData) => {
         if (!user) return;
@@ -105,15 +114,6 @@ export function ProfileClient() {
         }
     };
     
-    const getInitials = (name: string | null | undefined) => {
-      if (!name) return "U";
-      const names = name.split(' ');
-      if (names.length > 1) {
-        return (names[0][0] + names[names.length - 1][0]).toUpperCase();
-      }
-      return name.substring(0, 2).toUpperCase();
-    };
-
     const avatarPlaceholder = PlaceHolderImages.find(p => p.id === 'user-avatar');
 
     if (isLoading) {
@@ -197,10 +197,10 @@ export function ProfileClient() {
                                 )} />
                                 <div className="grid grid-cols-2 gap-4">
                                   <FormField control={form.control} name="age" render={({ field }) => (
-                                      <FormItem><FormLabel>Age</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                      <FormItem><FormLabel>Age</FormLabel><FormControl><Input type="number" {...{...field, value: field.value || ''}} /></FormControl><FormMessage /></FormItem>
                                   )} />
                                   <FormField control={form.control} name="weight" render={({ field }) => (
-                                      <FormItem><FormLabel>Weight (kg)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                      <FormItem><FormLabel>Weight (kg)</FormLabel><FormControl><Input type="number" {...{...field, value: field.value || ''}} /></FormControl><FormMessage /></FormItem>
                                   )} />
                                 </div>
                             </CardContent>
@@ -213,16 +213,16 @@ export function ProfileClient() {
                             </CardHeader>
                             <CardContent className="grid grid-cols-2 gap-4">
                                 <FormField control={form.control} name="macroGoals.calories" render={({ field }) => (
-                                    <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>Calories</FormLabel><FormControl><Input type="number" {...{...field, value: field.value || ''}} /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <FormField control={form.control} name="macroGoals.protein" render={({ field }) => (
-                                    <FormItem><FormLabel>Protein (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>Protein (g)</FormLabel><FormControl><Input type="number" {...{...field, value: field.value || ''}} /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <FormField control={form.control} name="macroGoals.carbs" render={({ field }) => (
-                                    <FormItem><FormLabel>Carbs (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>Carbs (g)</FormLabel><FormControl><Input type="number" {...{...field, value: field.value || ''}} /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <FormField control={form.control} name="macroGoals.fats" render={({ field }) => (
-                                    <FormItem><FormLabel>Fats (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>Fats (g)</FormLabel><FormControl><Input type="number" {...{...field, value: field.value || ''}} /></FormControl><FormMessage /></FormItem>
                                 )} />
                             </CardContent>
                         </Card>
