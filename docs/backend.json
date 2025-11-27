@@ -1,0 +1,200 @@
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user's profile information.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "User's full name."
+        },
+        "age": {
+          "type": "number",
+          "description": "User's age."
+        },
+        "weight": {
+          "type": "number",
+          "description": "User's weight in kilograms."
+        },
+        "macroGoals": {
+          "type": "string",
+          "description": "User's daily macro goals as a JSON string."
+        },
+        "profilePictureUrl": {
+          "type": "string",
+          "description": "URL of the user's profile picture.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "age",
+        "weight",
+        "macroGoals"
+      ]
+    },
+    "SleepLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SleepLog",
+      "type": "object",
+      "description": "Represents a user's sleep log entry.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the SleepLog entry."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N SleepLog)"
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Sleep start time.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "Sleep end time.",
+          "format": "date-time"
+        },
+        "totalHours": {
+          "type": "number",
+          "description": "Total sleep hours."
+        },
+        "date": {
+          "type": "string",
+          "description": "Date of the sleep log entry.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "startTime",
+        "endTime",
+        "totalHours",
+        "date"
+      ]
+    },
+    "MacroLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MacroLog",
+      "type": "object",
+      "description": "Represents a user's macro log entry.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the MacroLog entry."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N MacroLog)"
+        },
+        "calories": {
+          "type": "number",
+          "description": "Total calories in the meal."
+        },
+        "protein": {
+          "type": "number",
+          "description": "Amount of protein in grams."
+        },
+        "carbs": {
+          "type": "number",
+          "description": "Amount of carbohydrates in grams."
+        },
+        "fats": {
+          "type": "number",
+          "description": "Amount of fats in grams."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the macro log entry was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "calories",
+        "protein",
+        "carbs",
+        "fats",
+        "createdAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}/profile",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile information.  Path-based ownership is enforced via the `userId` parameter.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, corresponding to their Firebase Auth UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/sleep_logs/{sleepLogId}",
+        "definition": {
+          "entityName": "SleepLog",
+          "schema": {
+            "$ref": "#/backend/entities/SleepLog"
+          },
+          "description": "Stores sleep log entries for a specific user. Path-based ownership is enforced via the `userId` parameter.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, corresponding to their Firebase Auth UID."
+            },
+            {
+              "name": "sleepLogId",
+              "description": "The unique identifier for the sleep log entry."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/macro_logs/{macroLogId}",
+        "definition": {
+          "entityName": "MacroLog",
+          "schema": {
+            "$ref": "#/backend/entities/MacroLog"
+          },
+          "description": "Stores macro log entries for a specific user. Path-based ownership is enforced via the `userId` parameter.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, corresponding to their Firebase Auth UID."
+            },
+            {
+              "name": "macroLogId",
+              "description": "The unique identifier for the macro log entry."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to optimize for security, scalability, and ease of querying, following the principles of Authorization Independence, Structural Segregation, and Access Modeling. User-specific data (profile, sleep logs, and macro logs) are stored under the `/users/{userId}` path to leverage path-based ownership for simplified security rules. This structure enables secure list operations (QAPs) since each collection has a homogeneous security posture. Specifically, access control is enforced based on the `userId` path segment, ensuring only the authenticated user can access their own data. Denormalization is not strictly required in this design because ownership is enforced at the path level. However, consider denormalizing user profile information into sleep and macro logs if cross-collection queries or aggregations become necessary to avoid complex `get()` calls. This structure avoids hierarchical authorization dependencies, allowing for atomic operations."
+  }
+}
