@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,7 +13,9 @@ import { Loader2 } from "lucide-react";
 import { updateUserProfile, uploadProfilePicture } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { ChangeEvent, useRef } from "react";
+import { ChangeEvent, useRef, useEffect } from "react";
+import type { UserProfile } from "@/lib/types";
+import { doc } from "firebase/firestore";
 
 const profileSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -31,18 +33,26 @@ const profileSchema = z.object({
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 export function ProfileClient() {
-    const { user } = useAuth();
+    const { user } = useUser();
+    const firestore = useFirestore();
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const userProfileRef = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return doc(firestore, "users", user.uid);
+    }, [user, firestore]);
+
+    const { data: userProfile, isLoading } = useDoc<UserProfile>(userProfileRef);
+
     const form = useForm<ProfileFormData>({
         resolver: zodResolver(profileSchema),
-        defaultValues: {
-            name: user?.name || "",
-            email: user?.email || "",
-            age: user?.age || undefined,
-            weight: user?.weight || undefined,
-            macroGoals: user?.macroGoals || { calories: 2000, protein: 150, carbs: 200, fats: 70 },
+        values: {
+            name: userProfile?.name || user?.displayName || "",
+            email: userProfile?.email || user?.email || "",
+            age: userProfile?.age,
+            weight: userProfile?.weight,
+            macroGoals: userProfile?.macroGoals || { calories: 2000, protein: 150, carbs: 200, fats: 70 },
         },
     });
 
@@ -67,7 +77,6 @@ export function ProfileClient() {
             try {
                 await uploadProfilePicture(user.uid, file);
                 toast({ title: "Success", description: "Avatar updated successfully." });
-                // The AuthProvider's onSnapshot listener will update the UI automatically.
             } catch (error) {
                 toast({ variant: "destructive", title: "Error", description: "Failed to upload avatar." });
             }
@@ -80,6 +89,10 @@ export function ProfileClient() {
       return name.split(' ').map(n => n[0]).join('').substring(0,2);
     }
 
+    if (isLoading) {
+      return <div>Loading...</div>
+    }
+
     return (
         <div className="grid gap-6 md:grid-cols-3">
             <div className="md:col-span-1">
@@ -89,8 +102,8 @@ export function ProfileClient() {
                     </CardHeader>
                     <CardContent className="flex flex-col items-center gap-4">
                         <Avatar className="h-32 w-32 cursor-pointer" onClick={handleAvatarClick}>
-                            <AvatarImage src={user?.photoURL || avatarPlaceholder?.imageUrl} alt={user?.name || "User"} />
-                            <AvatarFallback>{getInitials(user?.name)}</AvatarFallback>
+                            <AvatarImage src={user?.photoURL || avatarPlaceholder?.imageUrl} alt={user?.displayName || "User"} />
+                            <AvatarFallback>{getInitials(user?.displayName)}</AvatarFallback>
                         </Avatar>
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
                         <Button variant="outline" onClick={handleAvatarClick}>Change Avatar</Button>

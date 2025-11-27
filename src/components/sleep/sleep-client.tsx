@@ -1,9 +1,9 @@
 "use client";
 
-import { useAuth } from "@/lib/hooks/use-auth";
-import { useEffect, useState } from "react";
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useState } from "react";
 import type { SleepLog } from "@/lib/types";
-import { addSleepLog, getSleepLogs } from "@/lib/actions";
+import { addSleepLog } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,9 +23,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { format, formatDistance } from "date-fns";
+import { format } from "date-fns";
 import { Skeleton } from "../ui/skeleton";
 import { Loader2, PlusCircle } from "lucide-react";
+import { collection, query, orderBy } from "firebase/firestore";
 
 const sleepLogSchema = z.object({
   startTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid start date" }),
@@ -36,11 +37,17 @@ const sleepLogSchema = z.object({
 });
 
 export function SleepClient() {
-  const { user } = useAuth();
-  const [sleepLogs, setSleepLogs] = useState<SleepLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useUser();
+  const firestore = useFirestore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
+
+  const sleepLogsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, "users", user.uid, "sleep_logs"), orderBy("date", "desc"));
+  }, [user, firestore]);
+
+  const { data: sleepLogs, isLoading: loading } = useCollection<SleepLog>(sleepLogsQuery);
 
   const form = useForm<z.infer<typeof sleepLogSchema>>({
     resolver: zodResolver(sleepLogSchema),
@@ -50,19 +57,6 @@ export function SleepClient() {
     },
   });
 
-  const fetchLogs = async () => {
-    if (user) {
-      setLoading(true);
-      const logs = await getSleepLogs(user.uid);
-      setSleepLogs(logs);
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchLogs();
-  }, [user]);
-
   const onSubmit = async (values: z.infer<typeof sleepLogSchema>) => {
     if (!user) return;
     try {
@@ -70,7 +64,6 @@ export function SleepClient() {
       toast({ title: "Success", description: "Sleep log added successfully." });
       form.reset();
       setIsDialogOpen(false);
-      await fetchLogs();
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to add sleep log." });
     }
@@ -155,7 +148,7 @@ export function SleepClient() {
                   <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                 </TableRow>
               ))
-            ) : sleepLogs.length > 0 ? (
+            ) : sleepLogs && sleepLogs.length > 0 ? (
               sleepLogs.map(log => (
                 <TableRow key={log.id}>
                   <TableCell>{format(log.date.toDate(), "MMM d, yyyy")}</TableCell>

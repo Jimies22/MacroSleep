@@ -1,9 +1,9 @@
 "use client";
 
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useUser, useFirestore, useMemoFirebase } from "@/firebase";
 import { useEffect, useMemo, useState } from "react";
-import type { MacroLog } from "@/lib/types";
-import { addMacroLog, getTodaysMacroLogs } from "@/lib/actions";
+import type { MacroLog, UserProfile } from "@/lib/types";
+import { addMacroLog } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,10 +14,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
 import { Skeleton } from "../ui/skeleton";
-import { Loader2, PlusCircle, UtensilsCrossed } from "lucide-react";
+import { Loader2, PlusCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { collection, query, where, orderBy, Timestamp } from "firebase/firestore";
+import { useCollection, useDoc } from "@/firebase/firestore/use-collection";
 
 const macroLogSchema = z.object({
   mealName: z.string().min(1, { message: "Meal name is required" }),
@@ -28,11 +29,34 @@ const macroLogSchema = z.object({
 });
 
 export function MacrosClient() {
-  const { user } = useAuth();
-  const [macroLogs, setMacroLogs] = useState<MacroLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useUser();
+  const firestore = useFirestore();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const { toast } = useToast();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const macroLogsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(
+      collection(firestore, "users", user.uid, "macro_logs"),
+      where("createdAt", ">=", Timestamp.fromDate(today)),
+      where("createdAt", "<", Timestamp.fromDate(tomorrow)),
+      orderBy("createdAt", "desc")
+    );
+  }, [user, firestore]);
+
+  const { data: macroLogs, isLoading: loading } = useCollection<MacroLog>(macroLogsQuery);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, "users", user.uid);
+  }, [user, firestore]);
+
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
 
   const form = useForm<z.infer<typeof macroLogSchema>>({
     resolver: zodResolver(macroLogSchema),
@@ -41,19 +65,6 @@ export function MacrosClient() {
     },
   });
 
-  const fetchLogs = async () => {
-    if (user) {
-      setLoading(true);
-      const logs = await getTodaysMacroLogs(user.uid);
-      setMacroLogs(logs);
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchLogs();
-  }, [user]);
-
   const onSubmit = async (values: z.infer<typeof macroLogSchema>) => {
     if (!user) return;
     try {
@@ -61,14 +72,13 @@ export function MacrosClient() {
       toast({ title: "Success", description: "Meal added successfully." });
       form.reset();
       setIsSheetOpen(false);
-      await fetchLogs();
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to add meal." });
     }
   };
 
   const dailyTotals = useMemo(() => {
-    return macroLogs.reduce((acc, log) => {
+    return (macroLogs || []).reduce((acc, log) => {
         acc.calories += log.calories;
         acc.protein += log.protein;
         acc.carbs += log.carbs;
@@ -77,7 +87,7 @@ export function MacrosClient() {
     }, { calories: 0, protein: 0, carbs: 0, fats: 0 });
   }, [macroLogs]);
 
-  const macroGoals = user?.macroGoals || { calories: 2000, protein: 150, carbs: 200, fats: 70 };
+  const macroGoals = userProfile?.macroGoals || { calories: 2000, protein: 150, carbs: 200, fats: 70 };
   
   const getProgress = (current: number, goal: number) => (goal > 0 ? (current / goal) * 100 : 0);
 
@@ -182,7 +192,7 @@ export function MacrosClient() {
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   </TableRow>
                 ))
-              ) : macroLogs.length > 0 ? (
+              ) : macroLogs && macroLogs.length > 0 ? (
                 macroLogs.map(log => (
                   <TableRow key={log.id}>
                     <TableCell className="font-medium">{log.mealName}</TableCell>

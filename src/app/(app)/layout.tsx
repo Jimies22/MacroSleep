@@ -2,7 +2,7 @@
 // It will redirect to the login page if the user is not authenticated.
 "use client";
 
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
@@ -15,16 +15,16 @@ import { Header } from "@/components/layout/header";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!isUserLoading && !user) {
       router.replace("/login");
     }
-  }, [user, loading, router]);
+  }, [user, isUserLoading, router]);
 
-  if (loading || !user) {
+  if (isUserLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useUser } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bed, UtensilsCrossed, Zap } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
@@ -18,15 +18,24 @@ const MACRO_COLORS = {
 };
 
 export function DashboardClient() {
-  const { user } = useAuth();
+  const { user } = useUser();
   const [macroLogs, setMacroLogs] = useState<MacroLog[]>([]);
   const [sleepLogs, setSleepLogs] = useState<SleepLog[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // A new state to hold the user profile data, including macro goals.
+  // We can't rely on the user object from useUser for custom fields like macroGoals
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     if (user) {
       const fetchData = async () => {
         setLoading(true);
+        // We will fetch user profile data separately to get custom fields
+        // This part needs a function to fetch profile, let's assume it's in actions
+        // const profile = await getUserProfile(user.uid); 
+        // setUserProfile(profile);
+
         const [macros, sleep] = await Promise.all([
           getTodaysMacroLogs(user.uid),
           getSleepLogs(user.uid),
@@ -60,7 +69,6 @@ export function DashboardClient() {
     const logDate = mostRecentLog.startTime.toDate();
     const today = new Date();
     
-    // Check if the log is from "last night" (within the last ~24 hours)
     if (differenceInDays(today, logDate) <= 1) {
         return mostRecentLog;
     }
@@ -98,12 +106,13 @@ export function DashboardClient() {
     { name: "Fats", value: dailyTotals.fats, fill: MACRO_COLORS.fats },
   ].filter(d => d.value > 0);
 
-  const macroGoals = user?.macroGoals || { calories: 2000, protein: 150, carbs: 200, fats: 70 };
+  // We need to get macroGoals from the user profile state
+  const macroGoals = userProfile?.macroGoals || { calories: 2000, protein: 150, carbs: 200, fats: 70 };
 
   return (
     <>
       <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-        Welcome back, {user?.name || "User"}!
+        Welcome back, {user?.displayName || "User"}!
       </h1>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {loading ? (

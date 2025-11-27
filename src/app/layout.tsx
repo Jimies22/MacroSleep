@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { AuthProvider } from '@/context/auth-context';
+import { FirebaseClientProvider } from '@/firebase';
 import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
 
@@ -27,10 +27,10 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="font-body antialiased">
-        <AuthProvider>
+        <FirebaseClientProvider>
           {children}
           <Toaster />
-        </AuthProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

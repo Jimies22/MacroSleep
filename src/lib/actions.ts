@@ -1,6 +1,6 @@
 "use client";
 
-import { auth, db, storage } from "@/lib/firebase/config";
+import { initializeFirebase } from "@/firebase";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -9,9 +9,14 @@ import {
   signOut,
   updateProfile as updateFirebaseProfile,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, Timestamp, query, where, orderBy, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, Timestamp, query, where, orderBy, updateDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import type { UserProfile, SleepLog, MacroLog } from "./types";
+import { getStorage } from "firebase/storage";
+import { setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+
+const { auth, firestore } = initializeFirebase();
+const storage = getStorage();
 
 // Auth Actions
 export async function signUpWithEmail({ name, email, password }: { name: string, email: string, password: string }) {
@@ -26,7 +31,8 @@ export async function signUpWithEmail({ name, email, password }: { name: string,
       email: user.email,
       photoURL: user.photoURL,
     };
-    await setDoc(doc(db, "users", user.uid), userProfile);
+    const userDocRef = doc(firestore, "users", user.uid);
+    setDocumentNonBlocking(userDocRef, userProfile, { merge: true });
     
     return { user: userProfile };
   } catch (error: any) {
@@ -49,7 +55,7 @@ export async function signInWithGoogle() {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
     
-    const userDocRef = doc(db, "users", user.uid);
+    const userDocRef = doc(firestore, "users", user.uid);
     const userDoc = await getDoc(userDocRef);
 
     if (!userDoc.exists()) {
@@ -59,7 +65,7 @@ export async function signInWithGoogle() {
         email: user.email,
         photoURL: user.photoURL,
       };
-      await setDoc(userDocRef, userProfile);
+      setDocumentNonBlocking(userDocRef, userProfile, { merge: true });
     }
     
     return { user };
@@ -79,20 +85,24 @@ export async function signOutUser() {
 
 // Profile Actions
 export async function updateUserProfile(uid: string, data: Partial<UserProfile>) {
-  const userDocRef = doc(db, "users", uid);
-  await updateDoc(userDocRef, data);
+  const userDocRef = doc(firestore, "users", uid);
+  updateDocumentNonBlocking(userDocRef, data);
 }
 
 export async function uploadProfilePicture(uid: string, file: File) {
   const storageRef = ref(storage, `profilePictures/${uid}`);
   await uploadBytes(storageRef, file);
   const photoURL = await getDownloadURL(storageRef);
+  
   await updateUserProfile(uid, { photoURL });
+  
   if (auth.currentUser) {
     await updateFirebaseProfile(auth.currentUser, { photoURL });
   }
+  
   return photoURL;
 }
+
 
 // Sleep Log Actions
 export async function addSleepLog(uid: string, data: { startTime: Date, endTime: Date }) {
@@ -107,11 +117,11 @@ export async function addSleepLog(uid: string, data: { startTime: Date, endTime:
       date: Timestamp.fromDate(new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate())),
     };
 
-    await addDoc(collection(db, "users", uid, "sleep_logs"), sleepLog);
+    addDocumentNonBlocking(collection(firestore, "users", uid, "sleep_logs"), sleepLog);
 }
 
 export async function getSleepLogs(uid: string): Promise<SleepLog[]> {
-    const q = query(collection(db, "users", uid, "sleep_logs"), orderBy("date", "desc"));
+    const q = query(collection(firestore, "users", uid, "sleep_logs"), orderBy("date", "desc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SleepLog));
 }
@@ -120,9 +130,9 @@ export async function getSleepLogs(uid: string): Promise<SleepLog[]> {
 export async function addMacroLog(uid: string, data: { mealName: string, calories: number, protein: number, carbs: number, fats: number }) {
     const macroLog = {
         ...data,
-        createdAt: Timestamp.now(),
+        createdAt: serverTimestamp(),
     };
-    await addDoc(collection(db, "users", uid, "macro_logs"), macroLog);
+    addDocumentNonBlocking(collection(firestore, "users", uid, "macro_logs"), macroLog);
 }
 
 export async function getTodaysMacroLogs(uid: string): Promise<MacroLog[]> {
@@ -132,11 +142,20 @@ export async function getTodaysMacroLogs(uid: string): Promise<MacroLog[]> {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     const q = query(
-        collection(db, "users", uid, "macro_logs"),
+        collection(firestore, "users", uid, "macro_logs"),
         where("createdAt", ">=", Timestamp.fromDate(today)),
         where("createdAt", "<", Timestamp.fromDate(tomorrow)),
         orderBy("createdAt", "desc")
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MacroLog));
+}
+
+export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  const userDocRef = doc(firestore, "users", uid);
+  const docSnap = await getDoc(userDocRef);
+  if (docSnap.exists()) {
+    return docSnap.data() as UserProfile;
+  }
+  return null;
 }
