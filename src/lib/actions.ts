@@ -88,9 +88,18 @@ export async function signOutUser() {
 
 // Profile Actions
 export async function updateUserProfile(uid: string, data: Partial<UserProfile>) {
-  const { uid: _uid, ...updateData } = data; // Exclude uid from the update payload
   const userDocRef = doc(firestore, "users", uid);
-  updateDocumentNonBlocking(userDocRef, updateData);
+  // We only want to update the firestore doc with non-auth related fields.
+  // The rest will be updated on the auth object itself.
+  const { photoURL, name, ...firestoreData } = data;
+  updateDocumentNonBlocking(userDocRef, firestoreData);
+  
+  if (auth.currentUser) {
+      await updateFirebaseProfile(auth.currentUser, {
+        displayName: name,
+        photoURL: photoURL,
+      });
+  }
 }
 
 export async function uploadProfilePicture(uid: string, file: File) {
@@ -98,8 +107,11 @@ export async function uploadProfilePicture(uid: string, file: File) {
   await uploadBytes(storageRef, file);
   const photoURL = await getDownloadURL(storageRef);
   
-  await updateUserProfile(uid, { photoURL });
+  // Update firestore doc with new photoURL
+  const userDocRef = doc(firestore, "users", uid);
+  updateDocumentNonBlocking(userDocRef, { photoURL });
   
+  // Update the auth user profile
   if (auth.currentUser) {
     await updateFirebaseProfile(auth.currentUser, { photoURL });
   }
