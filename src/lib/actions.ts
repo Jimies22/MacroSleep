@@ -90,8 +90,9 @@ export async function signOutUser() {
 
 // Profile Actions
 export async function updateUserProfile(uid: string, data: Partial<UserProfile>) {
+  const { uid: userUID, ...updateData } = data; // Exclude uid from the update payload
   const userDocRef = doc(firestore, "users", uid);
-  updateDocumentNonBlocking(userDocRef, data);
+  updateDocumentNonBlocking(userDocRef, updateData);
 }
 
 export async function uploadProfilePicture(uid: string, file: File) {
