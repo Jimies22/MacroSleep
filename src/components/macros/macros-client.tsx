@@ -15,9 +15,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "../ui/skeleton";
-import { Loader2, PlusCircle } from "lucide-react";
+import { Loader2, PlusCircle, Search } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { collection, query, where, orderBy, Timestamp, doc } from "firebase/firestore";
+import { getFoodInfo } from "@/ai/flows/get-food-info-flow";
+import { Separator } from "../ui/separator";
 
 const macroLogSchema = z.object({
   mealName: z.string().min(1, { message: "Meal name is required" }),
@@ -31,6 +33,8 @@ export function MacrosClient() {
   const { user } = useUser();
   const firestore = useFirestore();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isFetchingFoodInfo, setIsFetchingFoodInfo] = useState(false);
+  const [foodSearch, setFoodSearch] = useState("");
   const { toast } = useToast();
 
   const today = new Date();
@@ -64,12 +68,31 @@ export function MacrosClient() {
     },
   });
 
+  const handleFoodSearch = async () => {
+    if (!foodSearch) return;
+    setIsFetchingFoodInfo(true);
+    try {
+        const foodInfo = await getFoodInfo({ foodName: foodSearch });
+        form.setValue("calories", foodInfo.calories);
+        form.setValue("protein", foodInfo.protein);
+        form.setValue("carbs", foodInfo.carbs);
+        form.setValue("fats", foodInfo.fats);
+        form.setValue("mealName", foodSearch.charAt(0).toUpperCase() + foodSearch.slice(1));
+        toast({ title: "Success", description: "Food info populated." });
+    } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "Could not fetch food information." });
+    } finally {
+        setIsFetchingFoodInfo(false);
+    }
+  };
+
   const onSubmit = async (values: z.infer<typeof macroLogSchema>) => {
     if (!user) return;
     try {
       await addMacroLog(user.uid, values);
       toast({ title: "Success", description: "Meal added successfully." });
       form.reset();
+      setFoodSearch("");
       setIsSheetOpen(false);
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Failed to add meal." });
@@ -136,10 +159,31 @@ export function MacrosClient() {
             <SheetContent>
               <SheetHeader>
                 <SheetTitle>Add New Meal</SheetTitle>
-                <SheetDescription>Enter the details of your meal.</SheetDescription>
+                <SheetDescription>Search for a food or enter the details manually.</SheetDescription>
               </SheetHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                    <Label htmlFor="food-search">Quick Add with AI</Label>
+                    <div className="flex items-center space-x-2">
+                        <Input 
+                            id="food-search"
+                            placeholder="e.g., 1 cup of rice"
+                            value={foodSearch}
+                            onChange={(e) => setFoodSearch(e.target.value)}
+                            disabled={isFetchingFoodInfo}
+                        />
+                        <Button onClick={handleFoodSearch} disabled={isFetchingFoodInfo || !foodSearch} size="icon" variant="outline">
+                            {isFetchingFoodInfo ? <Loader2 className="h-4 w-4 animate-spin"/> : <Search className="h-4 w-4" />}
+                        </Button>
+                    </div>
+                </div>
+                <div className="relative">
+                    <Separator />
+                    <span className="absolute left-1/2 -translate-x-1/2 -top-2.5 bg-background px-2 text-xs text-muted-foreground">OR</span>
+                </div>
+              </div>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <FormField control={form.control} name="mealName" render={({ field }) => (
                       <FormItem><FormLabel>Meal Name</FormLabel><FormControl><Input placeholder="e.g., Chicken Salad" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
