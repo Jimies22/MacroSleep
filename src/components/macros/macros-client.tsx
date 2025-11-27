@@ -1,7 +1,7 @@
 "use client";
 
-import { useUser, useFirestore, useMemoFirebase } from "@/firebase";
-import { useEffect, useMemo, useState } from "react";
+import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from "@/firebase";
+import { useMemo, useState } from "react";
 import type { MacroLog, UserProfile } from "@/lib/types";
 import { addMacroLog } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
@@ -17,8 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "../ui/skeleton";
 import { Loader2, PlusCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { collection, query, where, orderBy, Timestamp } from "firebase/firestore";
-import { useCollection, useDoc } from "@/firebase/firestore/use-collection";
+import { collection, query, where, orderBy, Timestamp, doc } from "firebase/firestore";
 
 const macroLogSchema = z.object({
   mealName: z.string().min(1, { message: "Meal name is required" }),

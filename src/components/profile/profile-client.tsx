@@ -40,6 +40,8 @@ export function ProfileClient() {
 
     const userProfileRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
+        // The path should be /users/{uid}, not /users/{uid}/profile/{uid}
+        // Also, the document ID for the user's profile is their UID.
         return doc(firestore, "users", user.uid);
     }, [user, firestore]);
 
@@ -55,6 +57,19 @@ export function ProfileClient() {
             macroGoals: userProfile?.macroGoals || { calories: 2000, protein: 150, carbs: 200, fats: 70 },
         },
     });
+    
+    useEffect(() => {
+        if (userProfile) {
+            form.reset({
+                name: userProfile.name || user?.displayName || "",
+                email: userProfile.email || user?.email || "",
+                age: userProfile.age,
+                weight: userProfile.weight,
+                macroGoals: userProfile.macroGoals || { calories: 2000, protein: 150, carbs: 200, fats: 70 },
+            });
+        }
+    }, [userProfile, user, form]);
+
 
     const onSubmit = async (data: ProfileFormData) => {
         if (!user) return;
