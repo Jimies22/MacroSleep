@@ -40,8 +40,7 @@ export function ProfileClient() {
 
     const userProfileRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
-        // The path should be /users/{uid}, not /users/{uid}/profile/{uid}
-        // Also, the document ID for the user's profile is their UID.
+        // The document for a user's profile is stored at /users/{uid}
         return doc(firestore, "users", user.uid);
     }, [user, firestore]);
 
@@ -49,13 +48,7 @@ export function ProfileClient() {
 
     const form = useForm<ProfileFormData>({
         resolver: zodResolver(profileSchema),
-        values: {
-            name: userProfile?.name || user?.displayName || "",
-            email: userProfile?.email || user?.email || "",
-            age: userProfile?.age,
-            weight: userProfile?.weight,
-            macroGoals: userProfile?.macroGoals || { calories: 2000, protein: 150, carbs: 200, fats: 70 },
-        },
+        // Default values will be populated by the useEffect hook below
     });
     
     useEffect(() => {
@@ -66,6 +59,14 @@ export function ProfileClient() {
                 age: userProfile.age,
                 weight: userProfile.weight,
                 macroGoals: userProfile.macroGoals || { calories: 2000, protein: 150, carbs: 200, fats: 70 },
+            });
+        } else if (user) {
+            form.reset({
+                name: user.displayName || "",
+                email: user.email || "",
+                age: undefined,
+                weight: undefined,
+                macroGoals: { calories: 2000, protein: 150, carbs: 200, fats: 70 },
             });
         }
     }, [userProfile, user, form]);
@@ -117,7 +118,7 @@ export function ProfileClient() {
                     </CardHeader>
                     <CardContent className="flex flex-col items-center gap-4">
                         <Avatar className="h-32 w-32 cursor-pointer" onClick={handleAvatarClick}>
-                            <AvatarImage src={user?.photoURL || avatarPlaceholder?.imageUrl} alt={user?.displayName || "User"} />
+                            <AvatarImage src={userProfile?.photoURL || user?.photoURL || avatarPlaceholder?.imageUrl} alt={user?.displayName || "User"} />
                             <AvatarFallback>{getInitials(user?.displayName)}</AvatarFallback>
                         </Avatar>
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
@@ -167,7 +168,7 @@ export function ProfileClient() {
                                     <FormItem><FormLabel>Carbs (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <FormField control={form.control} name="macroGoals.fats" render={({ field }) => (
-                                    <FormItem><FormLabel>Fats (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>Fats (g)</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormMessage>
                                 )} />
                             </CardContent>
                         </Card>

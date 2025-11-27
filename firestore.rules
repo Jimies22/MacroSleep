@@ -9,8 +9,8 @@
  * All data is organized hierarchically under the top-level `/users` collection.
  * Each user's data is stored in a document structure like `/users/{userId}/...`,
  * where `{userId}` corresponds to the user's Firebase Authentication UID.
+ * The user's profile is stored at `/users/{userId}`.
  * Specific data types are segregated into their own subcollections:
- * - `/users/{userId}/profile/{profileId}`: Contains the user's profile document.
  * - `/users/{userId}/sleep_logs/{sleepLogId}`: A collection of the user's sleep entries.
  * - `/users/{userId}/macro_logs/{macroLogId}`: A collection of the user's macro entries.
  *
@@ -22,7 +22,7 @@
  * - **User Privacy**: Listing documents in the top-level `/users` collection is
  *   explicitly forbidden to prevent enumeration of all users in the application.
  * - **Relational Integrity**: On creation, rules validate that the document data
- *   contains an internal ownership field (`id` or `userId`) that matches the
+ *   contains an internal ownership field (`uid`) that matches the
  *   `{userId}` from the path. This field is enforced as immutable on updates to
  *   prevent documents from being "re-assigned" to different users.
  *
@@ -71,18 +71,18 @@ service cloud.firestore {
 
     /**
      * Validates a user is creating their own profile document and that the
-     * internal 'id' field correctly references their own UID.
+     * internal 'uid' field correctly references their own UID.
      */
     function isCreatingOwnProfile(userId) {
-      return isOwner(userId) && request.resource.data.id == userId;
+      return isOwner(userId) && request.resource.data.uid == userId;
     }
 
     /**
      * Validates a user is updating their own profile and ensures the
-     * internal 'id' field cannot be changed, maintaining relational integrity.
+     * internal 'uid' field cannot be changed, maintaining relational integrity.
      */
     function isUpdatingOwnImmutableProfile(userId) {
-      return isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      return isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
     }
 
     /**
@@ -107,33 +107,22 @@ service cloud.firestore {
     // =====================================================================
 
     /**
-     * @description Secures the user data tree. Direct access to a user's root
-     * document is denied to enforce the subcollection structure. Critically,
-     * this rule also prevents listing of all users in the `/users` collection.
+     * @description Secures the user profile document. Only the owner can
+     * read or write their own profile. Listing all users is forbidden.
      * @path /users/{userId}
-     * @allow (None) All direct operations on `/users/{userId}` are denied.
-     * @deny A user trying to list all other users: `db.collection('users').get()`.
-     * @principle Prevents user enumeration and enforces data access only through
-     * designated subcollections.
+     * @allow (get, update) User 'abc' reading/updating their own profile: `db.doc('users/abc').get()`.
+     * @deny (list) A user trying to list all other users: `db.collection('users').get()`.
+     * @deny (create) Creating a user doc without matching UID.
+     * @principle Prevents user enumeration and restricts data access to the owner.
      */
     match /users/{userId} {
-      allow get, list, create, update, delete: if false;
+      allow get: if isOwner(userId);
+      allow create: if isCreatingOwnProfile(userId);
+      allow update: if isUpdatingOwnImmutableProfile(userId);
+      allow delete: if isOwner(userId);
+      // Deny listing all users for privacy.
+      allow list: if false;
 
-      /**
-       * @description Secures a user's profile document. Only the owner of the
-       * profile can read or write to it.
-       * @path /users/{userId}/profile/{profileId}
-       * @allow User 'abc' reading their own profile: `db.doc('users/abc/profile/prof1').get()`.
-       * @deny User 'xyz' trying to update user 'abc's profile: `db.doc('users/abc/profile/prof1').update({...})`.
-       * @principle Restricts access to a user's own data tree.
-       */
-      match /profile/{profileId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if isCreatingOwnProfile(userId);
-        allow update: if isUpdatingOwnImmutableProfile(userId);
-        allow delete: if isExistingOwner(userId);
-      }
 
       /**
        * @description Secures a user's sleep log entries. Only the owner can

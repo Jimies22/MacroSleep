@@ -6,13 +6,22 @@
       "type": "object",
       "description": "Represents a user's profile information.",
       "properties": {
-        "id": {
+        "uid": {
           "type": "string",
-          "description": "Unique identifier for the UserProfile entity."
+          "description": "Unique identifier for the UserProfile entity, matching Firebase Auth UID."
         },
         "name": {
           "type": "string",
           "description": "User's full name."
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address."
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "URL of the user's profile picture.",
+          "format": "uri"
         },
         "age": {
           "type": "number",
@@ -23,21 +32,20 @@
           "description": "User's weight in kilograms."
         },
         "macroGoals": {
-          "type": "string",
-          "description": "User's daily macro goals as a JSON string."
-        },
-        "profilePictureUrl": {
-          "type": "string",
-          "description": "URL of the user's profile picture.",
-          "format": "uri"
+          "type": "object",
+          "description": "User's daily macro goals.",
+          "properties": {
+            "calories": { "type": "number" },
+            "protein": { "type": "number" },
+            "carbs": { "type": "number" },
+            "fats": { "type": "number" }
+          }
         }
       },
       "required": [
-        "id",
+        "uid",
         "name",
-        "age",
-        "weight",
-        "macroGoals"
+        "email"
       ]
     },
     "SleepLog": {
@@ -75,7 +83,6 @@
         }
       },
       "required": [
-        "id",
         "userId",
         "startTime",
         "endTime",
@@ -96,6 +103,10 @@
         "userId": {
           "type": "string",
           "description": "Reference to UserProfile. (Relationship: UserProfile 1:N MacroLog)"
+        },
+        "mealName": {
+            "type": "string",
+            "description": "Name of the meal."
         },
         "calories": {
           "type": "number",
@@ -120,8 +131,8 @@
         }
       },
       "required": [
-        "id",
         "userId",
+        "mealName",
         "calories",
         "protein",
         "carbs",
@@ -140,13 +151,13 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}/profile",
+        "path": "/users/{userId}",
         "definition": {
           "entityName": "UserProfile",
           "schema": {
             "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Stores user profile information.  Path-based ownership is enforced via the `userId` parameter.",
+          "description": "Stores user profile information. The document ID is the user's UID.",
           "params": [
             {
               "name": "userId",
@@ -195,7 +206,6 @@
           ]
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to optimize for security, scalability, and ease of querying, following the principles of Authorization Independence, Structural Segregation, and Access Modeling. User-specific data (profile, sleep logs, and macro logs) are stored under the `/users/{userId}` path to leverage path-based ownership for simplified security rules. This structure enables secure list operations (QAPs) since each collection has a homogeneous security posture. Specifically, access control is enforced based on the `userId` path segment, ensuring only the authenticated user can access their own data. Denormalization is not strictly required in this design because ownership is enforced at the path level. However, consider denormalizing user profile information into sleep and macro logs if cross-collection queries or aggregations become necessary to avoid complex `get()` calls. This structure avoids hierarchical authorization dependencies, allowing for atomic operations."
+    ]
   }
 }
