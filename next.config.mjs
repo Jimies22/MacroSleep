@@ -1,6 +1,14 @@
-import type {NextConfig} from 'next';
+/** @type {import('next').NextConfig} */
+import withPWA from '@ducanh2912/next-pwa';
 
-const nextConfig: NextConfig = {
+const pwa = withPWA({
+  dest: 'public',
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === 'development',
+});
+
+const nextConfig = {
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,
@@ -28,8 +36,20 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };
 
-export default nextConfig;
+export default pwa(nextConfig);

@@ -1,0 +1,142 @@
+"use client";
+
+import { auth, db, storage } from "@/lib/firebase/config";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  updateProfile as updateFirebaseProfile,
+} from "firebase/auth";
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, Timestamp, query, where, orderBy, updateDoc, deleteDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import type { UserProfile, SleepLog, MacroLog } from "./types";
+
+// Auth Actions
+export async function signUpWithEmail({ name, email, password }: { name: string, email: string, password: string }) {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    await updateFirebaseProfile(user, { displayName: name });
+    
+    const userProfile: UserProfile = {
+      uid: user.uid,
+      name: name,
+      email: user.email,
+      photoURL: user.photoURL,
+    };
+    await setDoc(doc(db, "users", user.uid), userProfile);
+    
+    return { user: userProfile };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+export async function signInWithEmail({ email, password }: { email: string, password: string }) {
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return { user: userCredential.user };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+export async function signInWithGoogle() {
+  const provider = new GoogleAuthProvider();
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+    
+    const userDocRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists()) {
+      const userProfile: UserProfile = {
+        uid: user.uid,
+        name: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL,
+      };
+      await setDoc(userDocRef, userProfile);
+    }
+    
+    return { user };
+  } catch (error: any) {
+    console.error("Google Sign-In Error:", error);
+    throw error;
+  }
+}
+
+export async function signOutUser() {
+  try {
+    await signOut(auth);
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+// Profile Actions
+export async function updateUserProfile(uid: string, data: Partial<UserProfile>) {
+  const userDocRef = doc(db, "users", uid);
+  await updateDoc(userDocRef, data);
+}
+
+export async function uploadProfilePicture(uid: string, file: File) {
+  const storageRef = ref(storage, `profilePictures/${uid}`);
+  await uploadBytes(storageRef, file);
+  const photoURL = await getDownloadURL(storageRef);
+  await updateUserProfile(uid, { photoURL });
+  if (auth.currentUser) {
+    await updateFirebaseProfile(auth.currentUser, { photoURL });
+  }
+  return photoURL;
+}
+
+// Sleep Log Actions
+export async function addSleepLog(uid: string, data: { startTime: Date, endTime: Date }) {
+    const { startTime, endTime } = data;
+    const totalMilliseconds = endTime.getTime() - startTime.getTime();
+    const totalHours = totalMilliseconds / (1000 * 60 * 60);
+
+    const sleepLog = {
+      startTime: Timestamp.fromDate(startTime),
+      endTime: Timestamp.fromDate(endTime),
+      totalHours: parseFloat(totalHours.toFixed(2)),
+      date: Timestamp.fromDate(new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate())),
+    };
+
+    await addDoc(collection(db, "users", uid, "sleep_logs"), sleepLog);
+}
+
+export async function getSleepLogs(uid: string): Promise<SleepLog[]> {
+    const q = query(collection(db, "users", uid, "sleep_logs"), orderBy("date", "desc"));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SleepLog));
+}
+
+// Macro Log Actions
+export async function addMacroLog(uid: string, data: { mealName: string, calories: number, protein: number, carbs: number, fats: number }) {
+    const macroLog = {
+        ...data,
+        createdAt: Timestamp.now(),
+    };
+    await addDoc(collection(db, "users", uid, "macro_logs"), macroLog);
+}
+
+export async function getTodaysMacroLogs(uid: string): Promise<MacroLog[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const q = query(
+        collection(db, "users", uid, "macro_logs"),
+        where("createdAt", ">=", Timestamp.fromDate(today)),
+        where("createdAt", "<", Timestamp.fromDate(tomorrow)),
+        orderBy("createdAt", "desc")
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MacroLog));
+}
