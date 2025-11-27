@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow users to upload and manage their own profile picture.
+    // The file must be named after the user's UID.
+    match /profilePictures/{userId} {
+      allow read;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
