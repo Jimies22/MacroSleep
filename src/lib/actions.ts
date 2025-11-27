@@ -14,11 +14,9 @@ import {
 import { doc, setDoc, getDoc, collection, addDoc, getDocs, Timestamp, query, where, orderBy, updateDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import type { UserProfile, SleepLog, MacroLog } from "./types";
-import { getStorage } from "firebase/storage";
 import { setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
-const { auth, firestore } = initializeFirebase();
-const storage = getStorage();
+const { auth, firestore, storage } = initializeFirebase();
 
 // Auth Actions
 export async function signUpWithEmail({ name, email, password }: { name: string, email: string, password: string }) {
@@ -90,7 +88,7 @@ export async function signOutUser() {
 
 // Profile Actions
 export async function updateUserProfile(uid: string, data: Partial<UserProfile>) {
-  const { uid: userUID, ...updateData } = data; // Exclude uid from the update payload
+  const { uid: _uid, ...updateData } = data; // Exclude uid from the update payload
   const userDocRef = doc(firestore, "users", uid);
   updateDocumentNonBlocking(userDocRef, updateData);
 }
