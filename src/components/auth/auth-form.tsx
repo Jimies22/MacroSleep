@@ -46,17 +46,19 @@ export function AuthForm() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      const user = await signInWithGoogle();
-      if (user) {
+      const result = await signInWithGoogle();
+      if (result?.user) {
         toast({ title: "Signed in with Google successfully!" });
         router.push("/dashboard");
       }
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Uh oh! Something went wrong.",
-        description: error.message,
-      });
+      if (error.code !== 'auth/popup-closed-by-user') {
+        toast({
+          variant: "destructive",
+          title: "Uh oh! Something went wrong.",
+          description: error.message,
+        });
+      }
     } finally {
       setIsLoading(false);
     }

@@ -8,6 +8,7 @@ import {
   GoogleAuthProvider,
   signOut,
   updateProfile as updateFirebaseProfile,
+  UserCredential,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, collection, addDoc, getDocs, Timestamp, query, where, orderBy, updateDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -49,7 +50,7 @@ export async function signInWithEmail({ email, password }: { email: string, pass
   }
 }
 
-export async function signInWithGoogle() {
+export async function signInWithGoogle(): Promise<{ user: UserCredential["user"] } | void> {
   const provider = new GoogleAuthProvider();
   try {
     const result = await signInWithPopup(auth, provider);
@@ -71,7 +72,10 @@ export async function signInWithGoogle() {
     return { user };
   } catch (error: any) {
     console.error("Google Sign-In Error:", error);
-    throw error;
+    // Don't throw for popup closed by user, just return nothing.
+    if (error.code !== 'auth/popup-closed-by-user') {
+      throw error;
+    }
   }
 }
 
