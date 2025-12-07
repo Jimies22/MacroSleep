@@ -109,7 +109,9 @@ export function ProfileClient() {
                 await uploadProfilePicture(user.uid, file);
                 toast({ title: "Success", description: "Avatar updated successfully." });
             } catch (error) {
-                toast({ variant: "destructive", title: "Error", description: "Failed to upload avatar." });
+                console.error("Avatar upload error:", error);
+                const message = error && (error as any).message ? (error as any).message : "Failed to upload avatar.";
+                toast({ variant: "destructive", title: "Error", description: message });
             }
         }
     };

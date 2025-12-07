@@ -107,14 +107,22 @@ export async function updateUserProfile(uid: string, data: Partial<UserProfile>)
 }
 
 export async function uploadProfilePicture(uid: string, file: File) {
-  const storageRef = ref(storage, `profilePictures/${uid}`);
-  await uploadBytes(storageRef, file);
-  const photoURL = await getDownloadURL(storageRef);
-  
-  // Update both firestore doc and auth user profile
-  await updateUserProfile(uid, { photoURL });
-  
-  return photoURL;
+  // Use a unique filename to avoid overwriting and preserve the original filename
+  const filename = `${Date.now()}_${file.name}`;
+  const storagePath = `profilePictures/${uid}/${filename}`;
+  const storageRef = ref(storage, storagePath);
+  try {
+    await uploadBytes(storageRef, file, { contentType: file.type });
+    const photoURL = await getDownloadURL(storageRef);
+
+    // Update both firestore doc and auth user profile
+    await updateUserProfile(uid, { photoURL });
+
+    return photoURL;
+  } catch (error: any) {
+    console.error("uploadProfilePicture failed:", error);
+    throw new Error(error?.message || "Failed to upload profile picture.");
+  }
 }
 
 
